@@ -34,35 +34,39 @@ ScreenGui.Name = "FPSPingGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = playerGui
 
+-- Frame
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 260, 0, 120)
 Frame.Position = UDim2.new(0.5, -130, 0, 20)
-Frame.BackgroundTransparency = 1 -- Hides original background
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
 Frame.Active = true
 Frame.Draggable = false
+Frame.ZIndex = 1
 Frame.Parent = ScreenGui
 
--- Theme background image
+-- Background image theme
 local ThemeImage = Instance.new("ImageLabel")
 ThemeImage.Name = "ThemeBackground"
 ThemeImage.Size = UDim2.new(1, 0, 1, 0)
 ThemeImage.Position = UDim2.new(0, 0, 0, 0)
 ThemeImage.Image = "rbxassetid://131928643682688"
 ThemeImage.ScaleType = Enum.ScaleType.Stretch
-ThemeImage.ZIndex = 0
 ThemeImage.BackgroundTransparency = 1
+ThemeImage.ZIndex = 0 -- Behind all other elements
 ThemeImage.Parent = Frame
 
+-- Rounded corners on the theme image
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = ThemeImage -- move the corner to the background image
+UICorner.Parent = ThemeImage
 
+-- Title Bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 25)
 TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 TitleBar.BorderSizePixel = 0
-TitleBar.ZIndex = 1
+TitleBar.ZIndex = 2
 TitleBar.Parent = Frame
 
 local TitleLabel = Instance.new("TextLabel")
@@ -74,7 +78,7 @@ TitleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 18
-TitleLabel.ZIndex = 2
+TitleLabel.ZIndex = 3
 TitleLabel.Parent = TitleBar
 
 local StatusLabel = Instance.new("TextLabel")
@@ -86,7 +90,7 @@ StatusLabel.Font = Enum.Font.SourceSans
 StatusLabel.TextSize = 16
 StatusLabel.Text = "FPS: -- | Ping: -- ms"
 StatusLabel.RichText = true
-StatusLabel.ZIndex = 2
+StatusLabel.ZIndex = 3
 StatusLabel.Parent = Frame
 
 local SliderLabel = Instance.new("TextLabel")
@@ -98,7 +102,7 @@ SliderLabel.Font = Enum.Font.SourceSans
 SliderLabel.TextSize = 14
 SliderLabel.Text = "FPS Cap:"
 SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-SliderLabel.ZIndex = 2
+SliderLabel.ZIndex = 3
 SliderLabel.Parent = Frame
 
 local SliderTrack = Instance.new("Frame")
@@ -106,7 +110,7 @@ SliderTrack.Size = UDim2.new(1, -80, 0, 20)
 SliderTrack.Position = UDim2.new(0, 10, 0, 85)
 SliderTrack.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 SliderTrack.BorderSizePixel = 0
-SliderTrack.ZIndex = 2
+SliderTrack.ZIndex = 3
 SliderTrack.Parent = Frame
 local SliderCorner = Instance.new("UICorner")
 SliderCorner.CornerRadius = UDim.new(0, 8)
@@ -119,7 +123,7 @@ SliderButton.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
 SliderButton.BorderSizePixel = 0
 SliderButton.Text = ""
 SliderButton.AutoButtonColor = false
-SliderButton.ZIndex = 3
+SliderButton.ZIndex = 4
 SliderButton.Parent = SliderTrack
 local ButtonCorner = Instance.new("UICorner")
 ButtonCorner.CornerRadius = UDim.new(0, 7)
@@ -135,7 +139,7 @@ FpsInput.Font = Enum.Font.SourceSans
 FpsInput.TextSize = 16
 FpsInput.Text = tostring(fpsCapValue.Value)
 FpsInput.ClearTextOnFocus = false
-FpsInput.ZIndex = 2
+FpsInput.ZIndex = 3
 FpsInput.Parent = Frame
 local InputCorner = Instance.new("UICorner")
 InputCorner.CornerRadius = UDim.new(0, 5)
@@ -146,6 +150,55 @@ local dragging, dragInput, dragStart, startPos
 
 local function update(input)
     local delta = input.Position - dragStart
+    Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        update(input)
+    end
+end)
+
+-- FPS & Ping update
+local fps = 0
+local frameCount = 0
+local fpsUpdateInterval = 0.5
+local fpsTimer = 0
+
+RunService.RenderStepped:Connect(function(dt)
+    frameCount += 1
+    fpsTimer += dt
+    if fpsTimer >= fpsUpdateInterval then
+        fps = math.floor(frameCount / fpsTimer + 0.5)
+        frameCount = 0
+        fpsTimer = 0
+        local ping = math.floor(player:GetNetworkPing() * 1000 + 0.5)
+
+        local fpsColor = fps < 30 and Color3.fromRGB(255, 0, 0)
+            or (fps <= 59 and Color3.fromRGB(255, 165, 0)) or Color3.fromRGB(0, 255, 0)
+
+        local pingColor = ping > 200 and Color3.fromRGB(255, 0, 0)
+            or (ping >= 150 and Color3.fromRGB(255, 165, 0))
+            or (ping >= 1 and Color3.fromRGB(0, 255, 0))
+            or Color3.fromRGB(255, 255, 255)
+
+        StatusLabel.Text = string.format(
+            'FPS: <font color="rgb(%d,%d,%d)">%d</font> | Ping: <font color="rgb(%d,%d,%d)">%d ms</font>',
+            fpsColor.R * 255, fpsColor.G * 255, fpsColor.B * 255, fps,
+            pingColor.R * 255
     Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
